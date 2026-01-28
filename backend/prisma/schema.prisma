@@ -1,0 +1,889 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["fullTextSearchPostgres"]
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model User {
+  id           String     @id @default(cuid())
+  email        String     @unique
+  name         String?
+  passwordHash String
+  avatarUrl    String?
+  isActive     Boolean    @default(true)
+  deletedAt    DateTime?
+  lastLoginAt  DateTime?
+  lastLoginIp  String?
+  mustChangePassword Boolean @default(false) // Girişte zorunlu şifre değişikliği
+  deactivatedAt DateTime?
+  deactivatedById String?
+  deactivatedBy User? @relation("UserDeactivatedBy", fields: [deactivatedById], references: [id], onDelete: SetNull)
+  activatedAt DateTime?
+  activatedById String?
+  activatedBy User? @relation("UserActivatedBy", fields: [activatedById], references: [id], onDelete: SetNull)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  roles        UserRole[]
+
+  ticketsCreated  Ticket[]        @relation("TicketCreatedBy")
+  ticketsAssigned Ticket[]        @relation("TicketAssignedTo")
+  ticketsClosed   Ticket[]        @relation("TicketClosedBy")
+  ticketsResolved Ticket[]        @relation("TicketResolvedBy")
+  ticketMessages  TicketMessage[]
+
+  deactivatedUsers User[] @relation("UserDeactivatedBy")
+  activatedUsers   User[] @relation("UserActivatedBy")
+
+  notifications    Notification[]
+  notificationPreference NotificationPreference?
+  sessions         Session[]
+  twoFactorAuth    TwoFactorAuth?
+  auditLogs        AuditLog[]
+  activityLogs     ActivityLog[]
+  groupMembers     GroupMember[]
+  groupsLed        Group[]        @relation("GroupLeader")
+  groupsCreated    Group[]        @relation("GroupCreatedBy")
+
+  // Ticket yeni özellikler
+  ticketAttachments  TicketAttachment[]
+  ticketWatchers     TicketWatcher[]
+  ticketTimeEntries  TicketTimeEntry[]
+  ticketRatings      TicketRating[]
+  ticketMentions     TicketMention[]
+  ticketMessageReactions TicketMessageReaction[]
+  ticketActivities   TicketActivity[]
+  settingsUpdated    SystemSettings[] @relation("SettingsUpdatedBy")
+  fileUploadLogs     FileUploadLog[]
+  emailLogs          EmailLog[]
+  emailTemplatesUpdated EmailTemplate[] @relation("EmailTemplateUpdatedBy")
+  passwordResetTokens PasswordResetToken[]
+  accountLockout AccountLockout?
+  unlockedAccounts AccountLockout[] @relation("AccountUnlockedBy")
+  passwordHistory PasswordHistory[]
+  passwordChangedAt DateTime? // Son şifre değişikliği tarihi
+  quarantinedFiles QuarantineFile[]
+  releasedQuarantines QuarantineFile[] @relation("QuarantineReleasedBy")
+  deletedQuarantines QuarantineFile[] @relation("QuarantineDeletedBy")
+  apiKeys ApiKey[]
+  createdApiKeys ApiKey[] @relation("ApiKeyCreatedBy")
+  
+  // Performance indexes
+  @@index([email])
+  @@index([isActive])
+  @@index([createdAt])
+  @@index([isActive, deletedAt])
+}
+
+model Role {
+  id          String           @id @default(cuid())
+  code        String           @unique
+  name        String
+  description String?
+  label       String?
+  color       String?
+  isSystem    Boolean          @default(false)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  users       UserRole[]
+  permissions RolePermission[]
+}
+
+model Permission {
+  id          String           @id @default(cuid())
+  code        String           @unique
+  name        String
+  description String?
+  isSystem    Boolean          @default(false)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  roles       RolePermission[]
+  templates   PermissionTemplateItem[]
+}
+
+model UserRole {
+  userId String
+  roleId String
+
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role   Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([userId, roleId])
+  @@index([roleId])
+}
+
+model RolePermission {
+  roleId       String
+  permissionId String
+
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+  @@index([permissionId])
+}
+
+model PermissionTemplate {
+  id          String   @id @default(cuid())
+  code        String   @unique
+  name        String
+  description String?
+  color       String?
+  icon        String?
+  permissions PermissionTemplateItem[]
+  isSystem    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([code])
+}
+
+model PermissionTemplateItem {
+  templateId   String
+  permissionId String
+
+  template     PermissionTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  permission   Permission         @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([templateId, permissionId])
+  @@index([permissionId])
+}
+
+model FileUploadLog {
+  id          String   @id @default(cuid())
+  fileName    String
+  fileSize    Int      // bytes
+  mimeType    String?
+  status      String   // SUCCESS, FAILED, DELETED
+  errorMessage String?
+  ticketId    String?
+  attachmentId String?
+  ip          String?
+  userAgent   String?
+  
+  userId      String?
+  user        User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  
+  createdAt   DateTime @default(now())
+
+  @@index([userId])
+  @@index([status])
+  @@index([ticketId])
+  @@index([createdAt])
+}
+
+// ========== NAVİGASYON SİSTEMİ ==========
+
+model NavSection {
+  id          String    @id @default(cuid())
+  code        String    @unique // Benzersiz kod (admin, reports, vb.)
+  name        String    // Görünen isim
+  icon        String?   // Lucide icon adı
+  order       Int       @default(0) // Sıralama
+  isActive    Boolean   @default(true)
+  isCollapsible Boolean @default(true) // Açılır kapanır mı
+  defaultOpen Boolean   @default(false) // Varsayılan açık mı
+  
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  items       NavItem[]
+
+  @@index([order])
+  @@index([isActive])
+}
+
+model NavItem {
+  id          String    @id @default(cuid())
+  code        String    @unique // Benzersiz kod (dashboard, tickets, vb.)
+  name        String    // Görünen isim
+  path        String    // Route path (/dashboard, /tickets, vb.)
+  icon        String?   // Lucide icon adı
+  permission  String?   // Gerekli yetki kodu (dashboard.read, vb.)
+  order       Int       @default(0) // Sıralama
+  isActive    Boolean   @default(true)
+  
+  sectionId   String?   // Bağlı olduğu section (null ise ana menüde)
+  section     NavSection? @relation(fields: [sectionId], references: [id], onDelete: SetNull)
+  
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([sectionId])
+  @@index([order])
+  @@index([isActive])
+}
+
+enum TicketStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+enum TicketPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+model Ticket {
+  id          String         @id @default(cuid())
+  key         Int            @unique @default(autoincrement())
+  title       String
+  description String?
+  status      TicketStatus   @default(OPEN)
+  priority    TicketPriority @default(MEDIUM)
+  dueAt       DateTime?
+
+  createdById String
+  createdBy   User           @relation("TicketCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+
+  assignedToId String?
+  assignedTo   User?         @relation("TicketAssignedTo", fields: [assignedToId], references: [id], onDelete: SetNull)
+
+  closedAt    DateTime?
+  closedById  String?
+  closedBy    User?          @relation("TicketClosedBy", fields: [closedById], references: [id], onDelete: SetNull)
+
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  messages    TicketMessage[]
+  categoryId  String?
+  category    TicketCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  tags        TicketTagRelation[]
+  attachments TicketAttachment[]
+  watchers    TicketWatcher[]
+  timeEntries TicketTimeEntry[]
+  rating      TicketRating?
+  dependencies TicketDependency[] @relation("TicketDependencies")
+  dependsOn   TicketDependency[] @relation("TicketDependsOn")
+  activities  TicketActivity[]
+  
+  // SLA fields
+  firstRespondedAt DateTime?
+  firstResponseSLA Int? // dakika
+  resolvedAt       DateTime?
+  resolvedById     String?
+  resolvedBy       User? @relation("TicketResolvedBy", fields: [resolvedById], references: [id], onDelete: SetNull)
+  resolutionNote   String?
+  resolutionSLA    Int? // saat
+  slaStatus        String? // 'on_time', 'at_risk', 'breached'
+  
+  // SLA relation
+  slaId      String?
+  sla        TicketSLA? @relation(fields: [slaId], references: [id], onDelete: SetNull)
+
+  // Single-column indexes
+  @@index([status])
+  @@index([priority])
+  @@index([createdById])
+  @@index([assignedToId])
+  @@index([createdAt])
+  @@index([dueAt])
+  @@index([categoryId])
+  @@index([slaStatus])
+  
+  // Composite indexes for common queries (Supabase performance)
+  @@index([status, assignedToId])
+  @@index([status, createdAt(sort: Desc)])
+  @@index([status, priority, createdAt(sort: Desc)])
+  @@index([assignedToId, status, updatedAt(sort: Desc)])
+  @@index([createdById, status])
+}
+
+model TicketMessage {
+  id        String   @id @default(cuid())
+  ticketId  String
+  ticket    Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  authorId  String
+  author    User     @relation(fields: [authorId], references: [id], onDelete: Restrict)
+
+  body      String
+  isInternal Boolean @default(false)
+  bodyHtml  String?  // Rich text HTML format
+
+  createdAt DateTime @default(now())
+  
+  attachments TicketAttachment[]
+  mentions    TicketMention[]
+  reactions   TicketMessageReaction[]
+
+  @@index([ticketId, createdAt])
+  @@index([authorId])
+}
+
+// ---- Yeni Özellik Modelleri
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  message   String
+  type      String   @default("info") // info, success, warning, error
+  readAt    DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([userId, readAt])
+  @@index([userId, createdAt])
+  @@index([userId, readAt, createdAt(sort: Desc)])
+}
+
+model NotificationPreference {
+  id              String   @id @default(cuid())
+  userId          String   @unique
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  inAppEnabled    Boolean  @default(true)
+  emailEnabled    Boolean  @default(false)
+  onAssigned      Boolean  @default(true)
+  onStatusChange  Boolean  @default(true)
+  onMention       Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([userId])
+}
+
+
+model Session {
+  id                String   @id @default(cuid())
+  userId            String
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token             String   @unique
+  device            String?  // Browser/OS info
+  ip                String?
+  userAgent         String?
+  location          String?  // IP'den tespit edilen lokasyon (opsiyonel)
+  lastActivity      DateTime @default(now())
+  expiresAt         DateTime
+  suspiciousActivity Boolean @default(false) // Şüpheli aktivite tespit edildi mi?
+  suspiciousReason  String?  // Şüpheli aktivite nedeni
+  terminatedAt      DateTime? // Oturum sonlandırılma tarihi
+  terminatedBy      String? // Sonlandıran kullanıcı ID (self veya admin)
+  terminatedReason  String? // Sonlandırma nedeni
+  createdAt         DateTime @default(now())
+
+  @@index([userId])
+  @@index([token])
+  @@index([expiresAt])
+  @@index([userId, expiresAt])
+  @@index([suspiciousActivity])
+  @@index([terminatedAt])
+  @@index([createdAt])
+}
+
+model TwoFactorAuth {
+  id          String   @id @default(cuid())
+  userId      String   @unique
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  enabled     Boolean  @default(false)
+  method      String?  @default("TOTP") // TOTP veya EMAIL
+  secret      String?  // TOTP secret (sadece TOTP için)
+  backupCodes String[] // Array of backup codes
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String?
+  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  entityType String   // User, Role, Permission, etc.
+  entityId   String?
+  action     String   // create, update, delete, etc.
+  oldValue   Json?    // Previous state
+  newValue   Json?    // New state
+  ip         String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+
+  @@index([userId])
+  @@index([entityType, entityId])
+  @@index([action])
+  @@index([createdAt])
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([entityType, createdAt(sort: Desc)])
+}
+
+model Group {
+  id          String        @id @default(cuid())
+  name        String
+  description String?
+  color       String?
+  icon        String?       // Icon key
+  isActive    Boolean       @default(true)
+  
+  leaderId    String?
+  leader      User?         @relation("GroupLeader", fields: [leaderId], references: [id], onDelete: SetNull)
+  
+  createdById String?
+  createdBy   User?         @relation("GroupCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  members     GroupMember[]
+
+  @@index([name])
+  @@index([leaderId])
+  @@index([createdById])
+}
+
+model GroupMember {
+  id      String  @id @default(cuid())
+  groupId String
+  group   Group   @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  userId  String
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role    String  @default("member") // member, leader, etc.
+  joinedAt DateTime @default(now())
+
+  @@unique([groupId, userId])
+  @@index([groupId])
+  @@index([userId])
+}
+
+model SystemSettings {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     Json
+  category  String   @default("general") // general, security, email, etc.
+  updatedAt DateTime @updatedAt
+  updatedById String?
+  updatedBy User?    @relation("SettingsUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  @@index([key])
+  @@index([category])
+  @@index([updatedById])
+}
+
+model Report {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  type        String   // user, role, activity, etc.
+  filters     Json?    // Report filters
+  createdById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([type])
+  @@index([createdById])
+}
+
+model ActivityLog {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  action    String   // page_view, click, etc.
+  entity    String?  // What entity was interacted with
+  entityId  String?
+  metadata  Json?    // Additional data
+  ip        String?
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([action])
+  @@index([createdAt])
+}
+
+// ===== Ticket Yeni Özellik Modelleri =====
+
+model TicketCategory {
+  id          String   @id @default(cuid())
+  name        String
+  color       String?  // Badge rengi için
+  description String?
+  isActive    Boolean  @default(true)
+  tickets     Ticket[]
+  sla         TicketSLA[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@index([isActive])
+  @@index([name])
+}
+
+model TicketTag {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  color     String?
+  tickets   TicketTagRelation[]
+  createdAt DateTime @default(now())
+  
+  @@index([name])
+}
+
+model TicketTagRelation {
+  ticketId String
+  tagId    String
+  ticket   Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  tag      TicketTag @relation(fields: [tagId], references: [id], onDelete: Cascade)
+  
+  @@id([ticketId, tagId])
+  @@index([tagId])
+}
+
+enum FileScanStatus {
+  PENDING
+  CLEAN
+  QUARANTINED
+  SCAN_FAILED
+}
+
+enum QuarantineReason {
+  VIRUS
+  MIME_TYPE_MISMATCH
+  SUSPICIOUS
+  SCAN_FAILED
+  MANUAL
+}
+
+model TicketAttachment {
+  id          String   @id @default(cuid())
+  ticketId    String
+  ticket      Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  messageId   String?  // Mesaja bağlı attachment (opsiyonel)
+  message     TicketMessage? @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  fileName    String
+  sanitizedFileName String @default("") // Sanitize edilmiş dosya adı
+  fileSize    Int      // bytes
+  mimeType    String
+  detectedMimeType String? // Magic bytes ile tespit edilen MIME type
+  filePath    String   // Storage path
+  uploadedById String
+  uploadedBy  User     @relation(fields: [uploadedById], references: [id], onDelete: Restrict)
+  scanStatus  FileScanStatus @default(PENDING)
+  scanResult  String?  // Tarama sonucu (virus adı, hata mesajı, vb.)
+  scannedAt   DateTime? // Tarama tarihi
+  quarantineId String? @unique // Quarantine kaydı ID
+  quarantine  QuarantineFile?
+  createdAt   DateTime @default(now())
+  
+  @@index([ticketId])
+  @@index([messageId])
+  @@index([uploadedById])
+  @@index([scanStatus])
+  @@index([quarantineId])
+}
+
+model TicketWatcher {
+  id        String   @id @default(cuid())
+  ticketId  String
+  ticket    Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  
+  @@unique([ticketId, userId])
+  @@index([userId])
+  @@index([ticketId])
+}
+
+model TicketDependency {
+  id          String   @id @default(cuid())
+  ticketId    String
+  ticket      Ticket   @relation("TicketDependencies", fields: [ticketId], references: [id], onDelete: Cascade)
+  dependsOnId String
+  dependsOn   Ticket   @relation("TicketDependsOn", fields: [dependsOnId], references: [id], onDelete: Cascade)
+  type        String   // 'blocks', 'related', 'duplicate'
+  createdAt   DateTime @default(now())
+  
+  @@unique([ticketId, dependsOnId])
+  @@index([dependsOnId])
+  @@index([type])
+}
+
+model TicketSLA {
+  id                String         @id @default(cuid())
+  name              String
+  priority          TicketPriority?
+  categoryId        String?
+  category          TicketCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  firstResponseTime Int?           // dakika cinsinden
+  resolutionTime    Int?           // saat cinsinden
+  isActive          Boolean        @default(true)
+  tickets           Ticket[]
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+  
+  @@index([isActive])
+  @@index([priority])
+  @@index([categoryId])
+}
+
+model TicketTimeEntry {
+  id          String   @id @default(cuid())
+  ticketId    String
+  ticket      Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Restrict)
+  description String?  // Ne yapıldı?
+  minutes     Int      // Harcanan dakika
+  date        DateTime @default(now()) // Çalışma tarihi
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@index([ticketId])
+  @@index([userId])
+  @@index([date])
+}
+
+model TicketRating {
+  id          String   @id @default(cuid())
+  ticketId    String   @unique
+  ticket      Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  rating      Int      // 1-5
+  comment     String?
+  ratedById   String
+  ratedBy     User     @relation(fields: [ratedById], references: [id], onDelete: Restrict)
+  createdAt   DateTime @default(now())
+  
+  @@index([ratedById])
+  @@index([rating])
+}
+
+model TicketActivity {
+  id          String   @id @default(cuid())
+  ticketId    String
+  ticket      Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  
+  type        String   // 'ticket_created', 'ticket_assigned', 'status_changed', 'priority_changed', 'category_changed', 'title_changed', 'first_response', 'public_message', 'internal_message', 'file_uploaded', 'ticket_resolved', 'ticket_closed', 'ticket_reopened', etc.
+  userId      String?
+  user        User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  
+  // Metadata (JSON formatında)
+  metadata    Json?    // Örn: { from: 'OPEN', to: 'IN_PROGRESS' } veya { fileName: 'example.pdf', fileSize: 12345 }
+  
+  // Referanslar (opsiyonel - ilgili kayıtlara referans)
+  relatedId   String?  // Örn: messageId, attachmentId, etc.
+  
+  createdAt   DateTime @default(now())
+  
+  @@index([ticketId, createdAt])
+  @@index([userId])
+  @@index([type])
+  @@index([ticketId])
+}
+
+model TicketMention {
+  id        String   @id @default(cuid())
+  messageId String
+  message   TicketMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  
+  @@unique([messageId, userId])
+  @@index([userId])
+  @@index([messageId])
+}
+
+model TicketMessageReaction {
+  id        String   @id @default(cuid())
+  messageId String
+  message   TicketMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  emoji     String   // '👍', '❤️', '🎉', vb.
+  createdAt DateTime @default(now())
+  
+  @@unique([messageId, userId, emoji])
+  @@index([messageId])
+  @@index([userId])
+}
+
+model TicketWorkflow {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  isActive    Boolean  @default(true)
+  rules       TicketWorkflowRule[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@index([isActive])
+}
+
+model TicketWorkflowRule {
+  id          String   @id @default(cuid())
+  workflowId  String
+  workflow    TicketWorkflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  triggerType String   // 'status_change', 'assign', 'create', 'message'
+  conditions  Json     // { status: 'OPEN', priority: 'HIGH' }
+  actions     Json     // { assignTo: 'userId', setStatus: 'IN_PROGRESS', notify: ['userId1'] }
+  order       Int
+  createdAt   DateTime @default(now())
+  
+  @@index([workflowId])
+  @@index([triggerType])
+}
+
+model EmailLog {
+  id          String   @id @default(cuid())
+  to          String   // Alıcı email
+  subject     String   // Email konusu
+  body        String?  // Email içeriği (HTML veya text)
+  status      String   // 'PENDING', 'SENT', 'FAILED'
+  errorMessage String? // Hata mesajı (varsa)
+  sentAt      DateTime? // Gönderilme zamanı
+  userId      String?  // Gönderen kullanıcı (opsiyonel - sistem email'leri için null)
+  user        User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  metadata    Json?    // Ek bilgiler (template, type, vb.)
+  createdAt   DateTime @default(now())
+  
+  @@index([to])
+  @@index([status])
+  @@index([userId])
+  @@index([createdAt])
+  @@index([status, createdAt])
+}
+
+model EmailTemplate {
+  id          String   @id @default(cuid())
+  code        String   @unique // '2fa', 'password-reset', 'ticket-notification', etc.
+  name        String   // Şablon adı
+  description String?  // Açıklama
+  subject     String   // Email konusu (değişkenler destekler: {{code}}, {{userName}}, vb.)
+  html        String   // HTML içerik (değişkenler destekler)
+  text        String?  // Text içerik (opsiyonel, HTML'den otomatik oluşturulabilir)
+  variables   Json?    // Kullanılabilir değişkenler ve açıklamaları
+  isActive    Boolean  @default(true)
+  isSystem    Boolean  @default(false) // Sistem şablonları silinemez
+  updatedById String?
+  updatedBy   User?    @relation("EmailTemplateUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  updatedAt   DateTime @updatedAt
+  createdAt   DateTime @default(now())
+  
+  @@index([code])
+  @@index([isActive])
+}
+
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String   @unique
+  used      Boolean  @default(false)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  
+  @@index([userId])
+  @@index([token])
+  @@index([expiresAt])
+  @@index([used])
+  @@index([token, used, expiresAt])
+}
+
+model AccountLockout {
+  id              String   @id @default(cuid())
+  userId           String   @unique
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  failedAttempts   Int      @default(0)
+  lockedUntil      DateTime?
+  lastFailedAt     DateTime?
+  lastFailedIp     String?
+  unlockedAt       DateTime?
+  unlockedById     String?
+  unlockedBy       User?    @relation("AccountUnlockedBy", fields: [unlockedById], references: [id], onDelete: SetNull)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  
+  @@index([userId])
+  @@index([lockedUntil])
+  @@index([lockedUntil, userId])
+}
+
+model IpLockout {
+  id          String   @id @default(cuid())
+  ip          String   @unique
+  failedAttempts Int    @default(0)
+  lockedUntil DateTime?
+  lastFailedAt DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@index([ip])
+  @@index([lockedUntil])
+  @@index([lockedUntil, ip])
+}
+
+model PasswordHistory {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  passwordHash String  // Eski şifre hash'i
+  createdAt   DateTime @default(now())
+  
+  @@index([userId])
+  @@index([userId, createdAt])
+}
+
+model QuarantineFile {
+  id          String   @id @default(cuid())
+  fileName    String
+  sanitizedFileName String
+  originalPath String  // Orijinal dosya yolu
+  quarantinePath String // Quarantine klasöründeki yolu
+  fileSize    Int
+  mimeType    String
+  detectedMimeType String?
+  scanResult  String?  // Virus adı veya tehdit bilgisi
+  reason      QuarantineReason // Quarantine nedeni
+  ticketId    String?
+  attachmentId String? @unique
+  attachment  TicketAttachment? @relation(fields: [attachmentId], references: [id], onDelete: SetNull)
+  uploadedById String?
+  uploadedBy  User?    @relation(fields: [uploadedById], references: [id], onDelete: SetNull)
+  releasedAt  DateTime? // Quarantine'den çıkarılma tarihi
+  releasedById String? // Quarantine'den çıkaran kullanıcı
+  releasedBy  User?    @relation("QuarantineReleasedBy", fields: [releasedById], references: [id], onDelete: SetNull)
+  deletedAt   DateTime? // Kalıcı silme tarihi
+  deletedById String? // Silen kullanıcı
+  deletedBy   User?    @relation("QuarantineDeletedBy", fields: [deletedById], references: [id], onDelete: SetNull)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@index([scanResult])
+  @@index([reason])
+  @@index([uploadedById])
+  @@index([createdAt])
+  @@index([releasedAt])
+}
+
+model ApiKey {
+  id          String   @id @default(cuid())
+  name        String   // API key adı/açıklaması
+  keyHash     String   @unique // Hash'lenmiş API key (güvenlik için)
+  keyPrefix   String   // Key'in ilk 8 karakteri (görüntüleme için)
+  userId      String   // API key sahibi
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  permissions Json?    // İzinler (opsiyonel - boşsa tüm izinler)
+  lastUsedAt  DateTime? // Son kullanım tarihi
+  lastUsedIp  String?  // Son kullanım IP'si
+  expiresAt   DateTime? // Son kullanım tarihi (null = süresiz)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdById String? // Oluşturan kullanıcı (admin tarafından oluşturulmuşsa)
+  createdBy   User?    @relation("ApiKeyCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  
+  @@index([userId])
+  @@index([keyHash])
+  @@index([isActive])
+  @@index([expiresAt])
+  @@index([userId, isActive])
+}
+
