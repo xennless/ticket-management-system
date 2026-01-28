@@ -1,0 +1,132 @@
+# ============================================
+# Özel Klasörler ve Dosyalar
+# ============================================
+# md/ klasörü - sadece geliştirici için (dokümantasyon)
+md/
+md/*
+.cursor/
+
+# ============================================
+# Environment Variables (Kritik Bilgiler)
+# ============================================
+.env
+.env.local
+.env.*.local
+*.env
+env.example
+
+# ============================================
+# Logs ve Geçici Dosyalar
+# ============================================
+logs/
+*.log
+*.log.*
+*.log.gz
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# ============================================
+# Uploads ve Kullanıcı İçeriği
+# ============================================
+backend/uploads/
+frontend/uploads/
+uploads/
+quarantine/
+
+# ============================================
+# Node Modules
+# ============================================
+node_modules/
+.pnp
+.pnp.js
+
+# ============================================
+# Build Outputs
+# ============================================
+dist/
+dist-ssr/
+build/
+*.tsbuildinfo
+.next/
+out/
+
+# ============================================
+# Database
+# ============================================
+*.db
+*.sqlite
+*.sqlite3
+*.db-journal
+
+# ============================================
+# IDE ve Editor
+# ============================================
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# ============================================
+# OS Files
+# ============================================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# ============================================
+# Test Coverage
+# ============================================
+coverage/
+*.lcov
+.nyc_output/
+
+# ============================================
+# Prisma
+# ============================================
+# Prisma migrations ve schema dosyaları commit edilmeli
+# Ama generated client'ı ignore et
+prisma/migrations/.migrate/
+
+# ============================================
+# Temporary Files
+# ============================================
+*.tmp
+*.temp
+.cache/
+.temp/
+tmp/
+temp/
+
+# ============================================
+# Windows Batch Files (opsiyonel - start.bat gibi)
+# ============================================
+*.bat
+
+# ============================================
+# Sentry
+# ============================================
+.sentryclirc
+
+# ============================================
+# Package Manager Locks (opsiyonel - genelde commit edilir)
+# ============================================
+# package-lock.json
+# yarn.lock
+# pnpm-lock.yaml
