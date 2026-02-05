@@ -1,37 +1,44 @@
 # Dependencies
 node_modules/
 
-# Build outputs
+# Build output
 dist/
 build/
 
-# Environment variables (kritik - commit edilmemeli)
+# Environment variables
 .env
 .env.local
 .env.*.local
-*.env
 
 # Logs
 logs/
 *.log
-*.log.*
-*.log.gz
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-pnpm-debug.log*
-lerna-debug.log*
 
-# OS files
+# Testing
+coverage/
+.nyc_output/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
 .DS_Store
 Thumbs.db
 
-# Uploads (kullanıcı içeriği)
-uploads/
-quarantine/
+# Prisma
+prisma/migrations/
 
-# Temporary files
-*.tmp
-*.temp
-.cache/
-.temp/
+# Uploads
+uploads/*
+!uploads/.gitkeep
+
+# Quarantine
+quarantine/*
+!quarantine/.gitkeep

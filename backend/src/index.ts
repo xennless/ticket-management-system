@@ -252,11 +252,17 @@ app.use((err: unknown, _req: express.Request, res: express.Response, _next: expr
   return res.status(500).json({ message: 'Sunucu hatası' });
 });
 
-app.listen(env.PORT, () => {
-  logger.info(`API çalışıyor: http://localhost:${env.PORT}`, { 
-    port: env.PORT, 
-    nodeEnv: env.NODE_ENV 
+// Export app for testing
+export { app };
+
+// Only start server if not in test environment
+if (process.env.NODE_ENV !== 'test' && !process.env.VITEST) {
+  app.listen(env.PORT, () => {
+    logger.info(`API çalışıyor: http://localhost:${env.PORT}`, { 
+      port: env.PORT, 
+      nodeEnv: env.NODE_ENV 
+    });
   });
-});
+}
 
 

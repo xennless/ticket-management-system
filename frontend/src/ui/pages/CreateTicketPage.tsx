@@ -2,7 +2,6 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { apiFetch } from '../../lib/api';
-import { getErrorMessage } from '../../lib/errors';
 import { Card } from '../components/Card';
 import { Button } from '../components/Button';
 import { Input } from '../components/Input';
@@ -12,9 +11,8 @@ import { useToast } from '../components/Toast';
 import { PageHeader } from '../components/PageHeader';
 import { useQuery } from '@tanstack/react-query';
 import { MultiSelect } from '../components/MultiSelect';
-import { FileUploadModal } from '../components/FileUploadModal';
 import { Modal } from '../components/Modal';
-import { Paperclip, X, Info } from 'lucide-react';
+import { Info } from 'lucide-react';
 
 type TicketPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
 
@@ -28,8 +26,6 @@ export function CreateTicketPage() {
   const [priority, setPriority] = useState<TicketPriority>('MEDIUM');
   const [categoryId, setCategoryId] = useState<string>('');
   const [tagIds, setTagIds] = useState<string[]>([]);
-  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
-  const [showFileModal, setShowFileModal] = useState(false);
   const [showInfoModal, setShowInfoModal] = useState(false);
 
   // Categories ve Tags query'leri
@@ -58,33 +54,6 @@ export function CreateTicketPage() {
         }
       }),
     onSuccess: async (res) => {
-      // Dosyaları yükle
-      if (selectedFiles.length > 0) {
-        const token = localStorage.getItem('ticket_token');
-        const uploadPromises = selectedFiles.map(async (file) => {
-          const formData = new FormData();
-          formData.append('file', file);
-          
-          const uploadRes = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001'}/api/ticket-attachments/${res.ticket.id}/upload`, {
-            method: 'POST',
-            headers: {
-              Authorization: `Bearer ${token}`
-            },
-            body: formData
-          });
-
-          if (!uploadRes.ok) {
-            throw new Error(`${file.name} yüklenemedi`);
-          }
-        });
-
-        try {
-          await Promise.all(uploadPromises);
-        } catch (error: unknown) {
-          toast.push({ type: 'warning', title: 'Uyarı', description: getErrorMessage(error) || 'Bazı dosyalar yüklenemedi' });
-        }
-      }
-
       toast.push({ type: 'success', title: 'Ticket oluşturuldu' });
       await qc.invalidateQueries({ queryKey: ['tickets'] });
       nav(`/tickets/${res.ticket.id}`);
@@ -94,21 +63,6 @@ export function CreateTicketPage() {
     }
   });
 
-  const formatFileSize = (bytes: number) => {
-    if (bytes === 0) return '0 Bytes';
-    const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
-  };
-
-  const handleFilesSelected = (files: File[]) => {
-    setSelectedFiles((prev) => [...prev, ...files]);
-  };
-
-  const removeFile = (index: number) => {
-    setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
-  };
 
   return (
     <div className="max-w-3xl">
@@ -186,68 +140,6 @@ export function CreateTicketPage() {
             </div>
           )}
 
-          {/* Dosya Ekleme */}
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-2">Dosyalar (Opsiyonel)</label>
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() => setShowFileModal(true)}
-              disabled={createM.isPending}
-            >
-              <Paperclip className="w-4 h-4 mr-2" />
-              Dosya Ekle
-            </Button>
-            {selectedFiles.length > 0 && (
-              <div className="mt-3 space-y-2">
-                {selectedFiles.map((file, index) => (
-                  <div
-                    key={index}
-                    className="flex items-center justify-between p-2 rounded-lg bg-slate-50 border border-slate-200"
-                  >
-                    <div className="flex items-center gap-3 flex-1 min-w-0">
-                      {file.type.startsWith('image/') ? (
-                        <img
-                          src={URL.createObjectURL(file)}
-                          alt={file.name}
-                          className="w-10 h-10 rounded object-cover flex-shrink-0"
-                        />
-                      ) : (
-                        <div className="w-10 h-10 rounded bg-slate-100 flex items-center justify-center flex-shrink-0">
-                          <Paperclip className="w-5 h-5 text-slate-400" />
-                        </div>
-                      )}
-                      <div className="flex-1 min-w-0">
-                        <div className="text-sm font-medium text-slate-900 truncate">
-                          {file.name}
-                        </div>
-                        <div className="text-xs text-slate-500">
-                          {formatFileSize(file.size)}
-                        </div>
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => removeFile(index)}
-                      disabled={createM.isPending}
-                      className="p-1.5 rounded-lg hover:bg-red-100 text-red-600 transition-colors disabled:opacity-50"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* File Upload Modal */}
-          <FileUploadModal
-            open={showFileModal}
-            onClose={() => setShowFileModal(false)}
-            onFilesSelected={handleFilesSelected}
-            title="Dosya Ekle"
-          />
-
           <div className="flex items-center justify-end gap-2 pt-2">
             <Button variant="secondary" onClick={() => nav(-1)} disabled={createM.isPending}>
               Vazgeç
@@ -317,8 +209,8 @@ export function CreateTicketPage() {
                     <span className="text-xs font-semibold text-slate-600">5</span>
                   </div>
                   <div>
-                    <p className="text-sm font-medium text-slate-900">Etiketler ve Dosyalar</p>
-                    <p className="text-sm text-slate-600">İsteğe bağlı olarak etiketler ekleyebilir ve ilgili dosyaları yükleyebilirsiniz. Bu, ticket'ın daha iyi organize edilmesini sağlar.</p>
+                    <p className="text-sm font-medium text-slate-900">Etiketler</p>
+                    <p className="text-sm text-slate-600">İsteğe bağlı olarak etiketler ekleyebilirsiniz. Bu, ticket'ın daha iyi organize edilmesini sağlar.</p>
                   </div>
                 </div>
               </div>
