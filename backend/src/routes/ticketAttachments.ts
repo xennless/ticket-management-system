@@ -11,6 +11,7 @@ import fs from 'fs/promises';
 import { fileURLToPath } from 'url';
 import { sanitizeFileName, validateFileContent, scanFileForVirus, moveToQuarantine } from '../utils/fileSecurity.js';
 import { env } from '../config/env.js';
+import { logger } from '../utils/logger.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -125,7 +126,12 @@ async function logFileUpload(data: {
       }
     });
   } catch (err) {
-    console.error('Dosya yükleme logu oluşturulamadı:', err);
+    logger.error('Dosya yükleme logu oluşturulamadı', {
+      error: err instanceof Error ? err.message : String(err),
+      stack: err instanceof Error ? err.stack : undefined,
+      ticketId,
+      userId
+    });
   }
 }
 

@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client';
+import { logger } from './logger.js';
 
 /**
  * Ticket aktivitesi kaydet
@@ -25,7 +26,12 @@ export async function createTicketActivity(
     });
   } catch (error) {
     // Aktivite kaydetme hatası uygulamayı durdurmamalı
-    console.error('[ticketActivity] Aktivite kaydetme hatası:', error);
+    logger.error('[ticketActivity] Aktivite kaydetme hatası', {
+      error: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+      ticketId: data.ticketId,
+      userId: data.userId
+    });
   }
 }
 

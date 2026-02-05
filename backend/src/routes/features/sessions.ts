@@ -4,6 +4,7 @@ import { prisma } from '../../db/prisma.js';
 import { requireAuth } from '../../middleware/requireAuth.js';
 import { requirePermission } from '../../middleware/requirePermission.js';
 import { checkSessionTimeout, cleanupExpiredSessions } from '../../utils/sessionSecurity.js';
+import { logger } from '../../utils/logger.js';
 
 export const sessionsRouter = Router();
 
@@ -174,7 +175,12 @@ sessionsRouter.get('/', requirePermission('session.read'), async (req, res) => {
 
     return res.json({ sessions: sessionsWithDetails });
   } catch (error: any) {
-    console.error('[sessions] Hata:', error?.message || error);
+    logger.error('[sessions] Hata', {
+      error: error?.message || String(error),
+      stack: error?.stack,
+      requestId: (req as any).requestId,
+      userId: (req as any).userId
+    });
     return res.status(500).json({ message: 'Session listesi alınamadı', error: error?.message });
   }
 });
@@ -324,7 +330,12 @@ sessionsRouter.get('/history', requirePermission('session.read'), async (req, re
       totalPages: Math.ceil(total / pageSize)
     });
   } catch (error: any) {
-    console.error('[sessions/history] Hata:', error?.message || error);
+    logger.error('[sessions/history] Hata', {
+      error: error?.message || String(error),
+      stack: error?.stack,
+      requestId: (req as any).requestId,
+      userId: (req as any).userId
+    });
     return res.status(500).json({ message: 'Session geçmişi alınamadı', error: error?.message });
   }
 });

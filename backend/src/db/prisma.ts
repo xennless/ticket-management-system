@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client';
+import { logger } from '../utils/logger.js';
 
 // Bazı ortamlarda (Windows environment variables / yanlış .env) PRISMA_CLIENT_ENGINE_TYPE=dataproxy/accelerate
 // set edilmiş olabiliyor. Bu durumda Prisma, DATABASE_URL için prisma:// bekler ve P6001 ile patlar.
@@ -24,9 +25,13 @@ if (process.env.NODE_ENV !== 'production' && process.env.PRISMA_DEBUG === '1') {
   const shownRaw = rawDbUrl ? `${rawDbUrl.trim().slice(0, 20)}…` : '<empty>';
   const shown = dbUrl ? `${dbUrl.slice(0, 20)}…` : '<empty>';
   // debug amaçlı: esbuild overlay'deki P6001 sebebini net görmek için
-  console.log(
-    `[prisma] engine=${process.env.PRISMA_CLIENT_ENGINE_TYPE ?? '<unset>'} rawDbUrl=${shownRaw} dbUrl=${shown} startsWithPrisma=${dbUrl.startsWith('prisma://')} startsWithPg=${dbUrl.startsWith('postgresql://') || dbUrl.startsWith('postgres://')}`
-  );
+  logger.debug('[prisma] Engine configuration', {
+    engine: process.env.PRISMA_CLIENT_ENGINE_TYPE ?? '<unset>',
+    rawDbUrl: shownRaw,
+    dbUrl: shown,
+    startsWithPrisma: dbUrl.startsWith('prisma://'),
+    startsWithPg: dbUrl.startsWith('postgresql://') || dbUrl.startsWith('postgres://')
+  });
 }
 
 // Global Prisma instance to prevent connection pool exhaustion during hot-reloads
@@ -54,7 +59,7 @@ if (process.env.NODE_ENV !== 'production') {
 
 if (process.env.NODE_ENV !== 'production' && process.env.PRISMA_DEBUG === '1') {
   const engineName = (prisma as any)?._engine?.constructor?.name ?? '<unknown>';
-  console.log(`[prisma] engineImpl=${engineName}`);
+  logger.debug('[prisma] Engine implementation', { engineImpl: engineName });
 }
 
 // Graceful shutdown - Supabase connection pooler için önemli

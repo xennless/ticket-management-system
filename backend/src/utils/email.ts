@@ -1,6 +1,7 @@
 import nodemailer, { Transporter } from 'nodemailer';
 import { prisma } from '../db/prisma.js';
 import { getSystemSettings } from './settings.js';
+import { logger } from './logger.js';
 
 export type EmailConfig = {
   enabled: boolean;
@@ -65,7 +66,12 @@ async function getTransporter(): Promise<Transporter | null> {
     transporterCache = transporter;
     return transporter;
   } catch (error: any) {
-    console.error('[Email] SMTP bağlantı hatası:', error.message);
+    logger.error('[Email] SMTP bağlantı hatası', {
+      error: error?.message || String(error),
+      stack: error?.stack,
+      host: config.host,
+      port: config.port
+    });
     transporterCache = null;
     return null;
   }
@@ -140,7 +146,12 @@ export async function sendEmail(options: SendEmailOptions): Promise<{ success: b
     });
     emailLogId = emailLog.id;
   } catch (error: any) {
-    console.error('[Email] Log kaydı oluşturma hatası:', error.message);
+    logger.error('[Email] Log kaydı oluşturma hatası', {
+      error: error?.message || String(error),
+      stack: error?.stack,
+      to: options.to,
+      subject: options.subject
+    });
     emailLogId = 'unknown';
   }
 
@@ -198,7 +209,12 @@ export async function sendEmail(options: SendEmailOptions): Promise<{ success: b
       }).catch(() => {});
     }
 
-    console.error('[Email] Gönderim hatası:', errorMessage);
+    logger.error('[Email] Gönderim hatası', {
+      error: errorMessage,
+      to: options.to,
+      subject: options.subject,
+      emailLogId
+    });
     return { success: false, error: errorMessage };
   }
 }

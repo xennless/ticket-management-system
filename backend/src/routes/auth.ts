@@ -10,6 +10,7 @@ import { sendEmail, emailTemplates, getEmailTemplate } from '../utils/email.js';
 import rateLimit from 'express-rate-limit';
 import { validatePassword, checkPasswordHistory, checkPasswordExpiration } from '../utils/passwordValidation.js';
 import { detectSuspiciousActivity } from '../utils/sessionSecurity.js';
+import { logger } from '../utils/logger.js';
 
 export const authRouter = Router();
 
@@ -286,7 +287,10 @@ authRouter.post('/login', loginLimiter, async (req, res) => {
     });
   } catch (sessionError: any) {
     // Session oluşturma hatası login'i engellememeli, sadece log'la
-    console.error('[auth/login] Session oluşturma hatası:', sessionError?.message || sessionError);
+    logger.error('[auth/login] Session oluşturma hatası', {
+      error: sessionError?.message || String(sessionError),
+      stack: sessionError?.stack
+    });
   }
 
   // Şifre süresi kontrolü
@@ -327,7 +331,10 @@ authRouter.post('/login', loginLimiter, async (req, res) => {
         }
       });
     } catch (sessionError: any) {
-      console.error('[auth/login] Session oluşturma hatası:', sessionError?.message || sessionError);
+      logger.error('[auth/login] Session oluşturma hatası', {
+        error: sessionError?.message || String(sessionError),
+        stack: sessionError?.stack
+      });
     }
 
     return res.status(200).json({
@@ -557,7 +564,10 @@ authRouter.post('/change-password-required', async (req, res) => {
       }
     });
   } catch (sessionError: any) {
-    console.error('[auth/change-password-required] Session oluşturma hatası:', sessionError?.message || sessionError);
+    logger.error('[auth/change-password-required] Session oluşturma hatası', {
+      error: sessionError?.message || String(sessionError),
+      stack: sessionError?.stack
+    });
   }
 
   return res.json({
@@ -838,7 +848,11 @@ authRouter.post('/password-reset/reset', passwordResetLimiter, async (req, res) 
     });
   } catch (emailError: any) {
     // Email gönderim hatası şifre sıfırlamayı engellememeli, sadece log'la
-    console.error('[auth/password-reset] Email gönderim hatası:', emailError?.message || emailError);
+    logger.error('[auth/password-reset] Email gönderim hatası', {
+      error: emailError?.message || String(emailError),
+      stack: emailError?.stack,
+      userId: resetToken.userId
+    });
   }
 
   return res.json({ message: 'Şifreniz başarıyla sıfırlandı' });
@@ -929,11 +943,21 @@ async function handleFailedLoginAttempt(userId: string | null, ip: string) {
                 metadata: { type: 'account-lockout', userId, ip }
               });
             } catch (emailError: any) {
-              console.error('[auth] Admin bildirim email hatası:', emailError?.message || emailError);
+              logger.error('[auth] Admin bildirim email hatası', {
+                error: emailError?.message || String(emailError),
+                stack: emailError?.stack,
+                userId,
+                ip
+              });
             }
           }
         } catch (error: any) {
-          console.error('[auth] Admin bildirim hatası:', error?.message || error);
+          logger.error('[auth] Admin bildirim hatası', {
+            error: error?.message || String(error),
+            stack: error?.stack,
+            userId,
+            ip
+          });
         }
       }
     }

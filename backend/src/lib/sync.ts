@@ -1,4 +1,5 @@
 import { prisma } from '../db/prisma.js';
+import { logger } from '../utils/logger.js';
 
 // DEFAULT_PERMISSIONS'ı seed.ts'den import ediyoruz
 // Seed dosyası ES module olduğu için dynamic import kullanıyoruz
@@ -18,11 +19,11 @@ async function loadDefaultPermissions() {
  * Mevcut permission'ların isim ve açıklamalarını günceller
  */
 export async function syncPermissions() {
-  console.log('🔄 Yetkiler senkronize ediliyor...');
+  logger.info('🔄 Yetkiler senkronize ediliyor...');
   
   const permissions = await loadDefaultPermissions();
   if (!permissions) {
-    console.error('   ❌ DEFAULT_PERMISSIONS yüklenemedi');
+    logger.error('DEFAULT_PERMISSIONS yüklenemedi');
     return;
   }
   
@@ -45,7 +46,7 @@ export async function syncPermissions() {
         }
       });
       addedCount++;
-      console.log(`   ✅ Yeni yetki eklendi: ${perm.code} - ${perm.name}`);
+      logger.info('Yeni yetki eklendi', { code: perm.code, name: perm.name });
     } else {
       // Mevcut yetkinin isim ve açıklamasını güncelle (sistem yetkileri için)
       if (existing.isSystem && (
@@ -60,15 +61,15 @@ export async function syncPermissions() {
           }
         });
         updatedCount++;
-        console.log(`   🔄 Yetki güncellendi: ${perm.code} - ${perm.name}`);
+        logger.info('Yetki güncellendi', { code: perm.code, name: perm.name });
       }
     }
   }
 
   if (addedCount === 0 && updatedCount === 0) {
-    console.log('   ✓ Tüm yetkiler güncel');
+    logger.info('Tüm yetkiler güncel');
   } else {
-    console.log(`   📊 ${addedCount} yetki eklendi, ${updatedCount} yetki güncellendi`);
+    logger.info('Yetki senkronizasyonu tamamlandı', { added: addedCount, updated: updatedCount });
   }
 }
 

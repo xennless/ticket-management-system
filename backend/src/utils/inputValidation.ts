@@ -1,5 +1,6 @@
 import path from 'path';
 import { z } from 'zod';
+import { logger } from './logger.js';
 
 /**
  * XSS koruması - HTML içeriğini temizle
@@ -221,10 +222,8 @@ const validationLogs: ValidationLog[] = [];
 
 export function logValidation(log: ValidationLog): void {
   validationLogs.push(log);
-  // Production'da logger'a gönder
-  if (process.env.NODE_ENV === 'production') {
-    console.warn('[VALIDATION]', log);
-  }
+  // Logger'a gönder
+  logger.warn('Validation log', { validation: log });
 }
 
 export function getValidationLogs(limit: number = 100): ValidationLog[] {

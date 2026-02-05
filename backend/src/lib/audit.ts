@@ -1,5 +1,6 @@
 import type { Request } from 'express';
 import { prisma } from '../db/prisma.js';
+import { logger } from '../utils/logger.js';
 
 /**
  * Audit log oluşturur
@@ -32,7 +33,13 @@ export async function audit(
     });
   } catch (error) {
     // Audit log hatası uygulamayı durdurmamalı
-    console.error('[audit] Log oluşturma hatası:', error);
+    logger.error('[audit] Log oluşturma hatası', {
+      error: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+      action,
+      entityType,
+      entityId
+    });
   }
 }
 
@@ -63,7 +70,14 @@ export async function auditWithChanges(
       }
     });
   } catch (error) {
-    console.error('[audit] Log oluşturma hatası:', error);
+    logger.error('[audit] Log oluşturma hatası', {
+      error: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+      action,
+      entityType,
+      entityId,
+      changes: data
+    });
   }
 }
 

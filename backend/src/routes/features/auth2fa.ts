@@ -7,6 +7,7 @@ import { prisma } from '../../db/prisma.js';
 import { requireAuth } from '../../middleware/requireAuth.js';
 import { requirePermission } from '../../middleware/requirePermission.js';
 import { getSystemSetting } from '../../utils/settings.js';
+import { logger } from '../../utils/logger.js';
 
 export const auth2faRouter = Router();
 
@@ -70,7 +71,12 @@ auth2faRouter.post('/enable', requirePermission('auth.2fa.manage'), async (req, 
     try {
       qrCodeDataUrl = await QRCode.toDataURL(otpauthUrl || '');
     } catch (error: any) {
-      console.error('[2FA] QR kod oluşturma hatası:', error.message);
+      logger.error('[2FA] QR kod oluşturma hatası', {
+        error: error?.message || String(error),
+        stack: error?.stack,
+        userId: (req as any).userId,
+        requestId: (req as any).requestId
+      });
       return res.status(500).json({ message: 'QR kod oluşturulamadı' });
     }
 

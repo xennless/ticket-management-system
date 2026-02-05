@@ -58,7 +58,11 @@ export async function apiKeyAuth(req: Request, res: Response, next: NextFunction
 
     next();
   } catch (error: any) {
-    console.error('[apiKeyAuth] Hata:', error);
+    logger.error('[apiKeyAuth] Hata', {
+      error: error?.message || String(error),
+      stack: error?.stack,
+      requestId: (req as any).requestId
+    });
     return res.status(500).json({ 
       message: 'API key doğrulama hatası',
       error: error?.message 

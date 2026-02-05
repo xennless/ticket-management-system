@@ -1,5 +1,6 @@
 import fs from 'fs/promises';
 import path from 'path';
+import { logger } from './logger.js';
 
 // Magic bytes (file signatures) - Dosya içeriği doğrulama için
 const MAGIC_BYTES: Record<string, number[][]> = {
@@ -75,7 +76,11 @@ export async function detectMimeTypeFromContent(filePath: string): Promise<strin
     
     return null;
   } catch (error) {
-    console.error('MIME type tespit hatası:', error);
+    logger.error('MIME type tespit hatası', {
+      error: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+      filePath: filePath ? path.basename(filePath) : undefined
+    });
     return null;
   }
 }

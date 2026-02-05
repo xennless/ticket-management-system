@@ -4,6 +4,7 @@ import { randomBytes, createHash } from 'crypto';
 import { prisma } from '../../db/prisma.js';
 import { requireAuth } from '../../middleware/requireAuth.js';
 import { requirePermission } from '../../middleware/requirePermission.js';
+import { logger } from '../../utils/logger.js';
 
 const router = Router();
 
@@ -73,7 +74,11 @@ router.get('/', requireAuth, requirePermission('apikey.read'), async (req, res) 
 
     return res.json({ apiKeys: safeApiKeys });
   } catch (error: any) {
-    console.error('[apiKeys] Listeleme hatası:', error);
+    logger.error('[apiKeys] Listeleme hatası', {
+      error: error?.message || String(error),
+      stack: error?.stack,
+      requestId: (req as any).requestId
+    });
     return res.status(500).json({ message: 'API key listesi alınamadı', error: error?.message });
   }
 });
@@ -112,7 +117,11 @@ router.get('/my', requireAuth, async (req, res) => {
 
     return res.json({ apiKeys: safeApiKeys });
   } catch (error: any) {
-    console.error('[apiKeys] Listeleme hatası:', error);
+    logger.error('[apiKeys] Listeleme hatası', {
+      error: error?.message || String(error),
+      stack: error?.stack,
+      requestId: (req as any).requestId
+    });
     return res.status(500).json({ message: 'API key listesi alınamadı', error: error?.message });
   }
 });
@@ -196,7 +205,11 @@ router.post('/', requireAuth, requirePermission('apikey.manage'), async (req, re
     if (error instanceof z.ZodError) {
       return res.status(400).json({ message: 'Geçersiz veri', errors: error.errors });
     }
-    console.error('[apiKeys] Oluşturma hatası:', error);
+    logger.error('[apiKeys] Oluşturma hatası', {
+      error: error?.message || String(error),
+      stack: error?.stack,
+      requestId: (req as any).requestId
+    });
     return res.status(500).json({ message: 'API key oluşturulamadı', error: error?.message });
   }
 });
@@ -279,7 +292,11 @@ router.put('/:id', requireAuth, requirePermission('apikey.manage'), async (req, 
     if (error instanceof z.ZodError) {
       return res.status(400).json({ message: 'Geçersiz veri', errors: error.errors });
     }
-    console.error('[apiKeys] Güncelleme hatası:', error);
+    logger.error('[apiKeys] Güncelleme hatası', {
+      error: error?.message || String(error),
+      stack: error?.stack,
+      requestId: (req as any).requestId
+    });
     return res.status(500).json({ message: 'API key güncellenemedi', error: error?.message });
   }
 });
@@ -331,7 +348,11 @@ router.delete('/:id', requireAuth, requirePermission('apikey.manage'), async (re
 
     return res.json({ message: 'API key silindi' });
   } catch (error: any) {
-    console.error('[apiKeys] Silme hatası:', error);
+    logger.error('[apiKeys] Silme hatası', {
+      error: error?.message || String(error),
+      stack: error?.stack,
+      requestId: (req as any).requestId
+    });
     return res.status(500).json({ message: 'API key silinemedi', error: error?.message });
   }
 });
@@ -410,7 +431,11 @@ router.get('/:id', requireAuth, requirePermission('apikey.read'), async (req, re
       }
     });
   } catch (error: any) {
-    console.error('[apiKeys] Detay hatası:', error);
+    logger.error('[apiKeys] Detay hatası', {
+      error: error?.message || String(error),
+      stack: error?.stack,
+      requestId: (req as any).requestId
+    });
     return res.status(500).json({ message: 'API key detayı alınamadı', error: error?.message });
   }
 });
