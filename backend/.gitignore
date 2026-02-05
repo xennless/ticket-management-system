@@ -42,3 +42,6 @@ uploads/*
 # Quarantine
 quarantine/*
 !quarantine/.gitkeep
+
+# MD
+*.md

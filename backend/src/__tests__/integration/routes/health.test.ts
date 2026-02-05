@@ -1,3 +1,6 @@
+// ÖNEMLİ: Setup dosyasını app'ten ÖNCE import et
+import '../setup.js'; // Integration test setup
+
 import { describe, it, expect } from 'vitest';
 import request from 'supertest';
 import { app } from '../../../index.js';

@@ -1,3 +1,7 @@
+// ÖNEMLİ: Setup dosyasını app'ten ÖNCE import et
+// Bu, DATABASE_URL'in test veritabanına set edilmesini sağlar
+import '../setup.js'; // Integration test setup - DATABASE_URL'i set eder
+
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import request from 'supertest';
 import { app } from '../../../index.js';
@@ -10,13 +14,19 @@ describe('Auth API', () => {
 
   beforeAll(async () => {
     // Test kullanıcısı oluştur
-    const { user, password } = await createTestUser({
-      email: `test-auth-${Date.now()}@example.com`,
-      password: 'TestPassword123!',
-    });
-    testUserId = user.id;
-    testUserEmail = user.email;
-    testUserPassword = password;
+    try {
+      const { user, password } = await createTestUser({
+        email: `test-auth-${Date.now()}@example.com`,
+        password: 'TestPassword123!',
+      });
+      testUserId = user.id;
+      testUserEmail = user.email;
+      testUserPassword = password;
+      console.log('✅ Test user created:', testUserEmail);
+    } catch (error) {
+      console.error('❌ Failed to create test user:', error);
+      throw error;
+    }
   });
 
   afterAll(async () => {
@@ -34,6 +44,11 @@ describe('Auth API', () => {
           email: testUserEmail,
           password: testUserPassword,
         });
+
+      // Debug: Hata mesajını göster
+      if (res.status !== 200) {
+        console.error('Login failed:', res.status, res.body);
+      }
 
       expect(res.status).toBe(200);
       expect(res.body).toHaveProperty('token');
@@ -121,9 +136,12 @@ describe('Auth API', () => {
         .set('Authorization', `Bearer ${authToken}`);
 
       expect(res.status).toBe(200);
-      expect(res.body).toHaveProperty('id');
-      expect(res.body).toHaveProperty('email');
-      expect(res.body.email).toBe(testUserEmail);
+      expect(res.body).toHaveProperty('user');
+      expect(res.body.user).toHaveProperty('id');
+      expect(res.body.user).toHaveProperty('email');
+      expect(res.body.user.email).toBe(testUserEmail);
+      expect(res.body).toHaveProperty('roles');
+      expect(res.body).toHaveProperty('permissions');
     });
 
     it('should reject request without token', async () => {
